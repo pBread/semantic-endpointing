@@ -1,5 +1,6 @@
 *.local.*
 models/
+.DS_STORE
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
