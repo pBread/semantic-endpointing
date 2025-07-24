@@ -1,1 +1,1 @@
-# semantic-endpointing
+# Semantic Endpointing

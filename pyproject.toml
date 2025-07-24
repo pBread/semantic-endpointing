@@ -1,0 +1,7 @@
+[project]
+name = "semantic-endpointing"
+version = "0.1.0"
+description = "Demo showcasing semantic endpointing for voice agents"
+dependencies = [
+    "transformers>=4.53.3",
+]
