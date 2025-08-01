@@ -12,3 +12,18 @@ Examples:
 - "The name of that is, umm..." → Incomplete (user is thinking)
 - "Thank you, that's exactly what I needed." → Complete (statement of satisfaction)
 - "Well, I was looking into..." → Incomplete (user continuing thought)
+
+## Getting Started
+
+### Setup
+
+### Run Application
+
+#### Start Ngrok Tunnel
+
+For convenience, there's a script that will start Ngrok from the `HOSTNAME` in the env variables.
+
+```bash
+chmod +x scripts/ngrok.bash
+./scripts/ngrok.bash
+```
