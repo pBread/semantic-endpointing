@@ -1,12 +1,16 @@
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from typing import Dict, Any
 import json
 import logging
 import numpy as np
 import os
 import torch
 import uvicorn
+
+load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
