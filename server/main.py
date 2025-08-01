@@ -1,6 +1,15 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-import torch
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import Response
+import json
+import logging
 import numpy as np
+import os
+import torch
+import uvicorn
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set seed for reproducible demo results
 # Note: TEN-framework/TEN_Turn_Detection should be properly trained for production use
@@ -57,27 +66,92 @@ class SemanticEvaluator:
         return prob_finished
 
 
-def main():
-    print("starting")
+class MediaStreamHandler:
+    def __init__(self):
+        self.semantic_evaluator = SemanticEvaluator()
+        self.stream_sid = None
 
-    test_cases = [
-        "How can I help you today?",
-        "Well, I was looking into the available rental cars on your website. And, umm...",
-        "Hmm, maybe ",
-        "Thank you very much for your help today.",
-        "I think that covers everything I needed.",
-        "So basically what I'm trying to",
-        "Okay, goodbye!",
-        "Let me think about this for a",
-        "Perfect, that's exactly what I wanted.",
-    ]
+    async def handle_message(self, websocket: WebSocket, message: Dict[str, Any]):
+        """Handle incoming Twilio Media Stream messages"""
+        event = message.get("event")
 
-    evaluator = SemanticEvaluator()
+        if event == "connected":
+            logger.info("Media stream connected")
 
-    for text in test_cases:
-        prob = evaluator.evaluate(text)
-        print(f"{prob:.3f} | {text}")
+        elif event == "start":
+            self.stream_sid = message.get("start", {}).get("streamSid")
+            logger.info(f"Media stream started: {self.stream_sid}")
+
+        elif event == "media":
+            await self.handle_media(websocket, message)
+
+        elif event == "stop":
+            logger.info("Media stream stopped")
+
+    async def handle_media(self, websocket: WebSocket, message: Dict[str, Any]):
+        """Process incoming audio data"""
+        try:
+            logger.info("handle_media")
+
+        except Exception as e:
+            logger.error(f"Error processing media: {e}")
+
+
+app = FastAPI(title="Semantic Endpointing API")
+
+
+@app.post("/incoming-call")
+async def handle_incoming_call(request: Request):
+    """Generate TwiML to connect to Media Stream WebSocket"""
+
+    # Get hostname from environment variable
+    HOSTNAME = os.getenv("HOSTNAME")
+
+    # Generate TwiML response
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>Hello! I'm connecting you to our semantic endpointing system.</Say>
+    <Connect>
+        <Stream url="wss://{HOSTNAME}/media-stream" />
+    </Connect>
+</Response>"""
+
+    logger.info(f"Generated TwiML for media stream: {HOSTNAME}/media-stream")
+
+    return Response(content=twiml, media_type="application/xml")
+
+
+@app.websocket("/media-stream")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for Twilio Media Stream"""
+    media_handler = MediaStreamHandler()
+
+    await websocket.accept()
+    logger.info("WebSocket connection accepted")
+
+    try:
+        while True:
+            # Receive message from Twilio
+            data = await websocket.receive_text()
+            message = json.loads(data)
+
+            # Handle the message
+            await media_handler.handle_message(websocket, message)
+
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        logger.info("WebSocket connection closed")
 
 
 if __name__ == "__main__":
-    main()
+    # Get port from environment or default to 8080
+    port = int(os.getenv("PORT", 8080))
+    host = os.getenv("HOST", "0.0.0.0")
+
+    logger.info(f"Starting server on port:{port}")
+    logger.info(f"Hostname: {os.getenv('HOSTNAME', 'Not set')}")
+
+    uvicorn.run(app, host=host, port=port)
