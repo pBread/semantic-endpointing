@@ -8,7 +8,9 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
+from pydub import AudioSegment
 from typing import Dict, Any
+import base64
 import json
 import librosa
 import logging
@@ -16,7 +18,6 @@ import numpy as np
 import os
 import torch
 import uvicorn
-
 
 load_dotenv()
 
@@ -105,6 +106,8 @@ class WhisperTranscriber:
             self.device = torch.device("cpu")
             logger.info("Using CPU")
 
+        self.model.to(self.device)
+
         logger.info("Whisper model loaded successfully")
 
     def transcribe_audio(self, audio_data, sample_rate=8000):
@@ -154,6 +157,7 @@ class WhisperTranscriber:
 class MediaStreamHandler:
     def __init__(self):
         self.stream_sid = None
+        self.audio_chunks = []
 
     async def handle_message(self, websocket: WebSocket, message: Dict[str, Any]):
         """Handle incoming Twilio Media Stream messages"""
@@ -175,8 +179,32 @@ class MediaStreamHandler:
     async def handle_media(self, websocket: WebSocket, message: Dict[str, Any]):
         """Process incoming audio data"""
         try:
-            logger.info("handle_media")
-            whisper_transcriber.transcribe_audio()
+            payload = message.get("media", {}).get("payload", "")
+
+            audio_bytes = base64.b64decode(payload)
+
+            # Convert mu-law to linear PCM
+            audio_segment = AudioSegment(
+                data=audio_bytes, sample_width=1, frame_rate=8000, channels=1
+            )
+
+            samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
+            samples = samples / 32768.0  # Normalize to [-1, 1] range
+
+            self.audio_chunks.extend(samples)
+
+            # If we have enough audio (2 seconds), transcribe
+            if len(self.audio_chunks) >= 16000:  # 2 seconds at 8kHz
+                audio_array = np.array(self.audio_chunks)
+
+                # Transcribe
+                transcript = whisper_transcriber.transcribe_audio(audio_array)
+
+                # Log it
+                logger.info(f"TRANSCRIPT: {transcript}")
+
+                # Clear chunks
+                self.audio_chunks = []
 
         except Exception as e:
             logger.error(f"Error processing media: {e}")
