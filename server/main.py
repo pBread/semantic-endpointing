@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Set seed for reproducible demo results
-# Note: TEN-framework/TEN_Turn_Detection should be properly trained for production use
+# Note: TEN-framework/TEN_Turn_Detection must be fine tuned for production use
 torch.manual_seed(999)
 
 
