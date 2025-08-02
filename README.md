@@ -27,3 +27,9 @@ For convenience, there's a script that will start Ngrok from the `HOSTNAME` in t
 chmod +x scripts/ngrok.bash
 ./scripts/ngrok.bash
 ```
+
+#### Start Server
+
+```bash
+uv run server/main.py
+```

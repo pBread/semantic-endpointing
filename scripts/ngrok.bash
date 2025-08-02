@@ -19,6 +19,7 @@ load_env() {
 # Function to execute ngrok and return exit code
 exec_ngrok() {
     local args=("$@")
+    echo "Running: ngrok ${args[*]}"
     ngrok "${args[@]}"
     return $?
 }
@@ -33,36 +34,23 @@ main() {
     
     # Base arguments
     base_args=("http" "$PORT")
-    exit_code=1  # 0 = success, 1 = error
     
-    # Try legacy syntax if HOSTNAME is set
+    # Try with custom hostname first if HOSTNAME is set
     if [[ -n "$HOSTNAME" ]]; then
-        exec_ngrok "${base_args[@]}" "--hostname=$HOSTNAME"
-        exit_code=$?
+        echo "Attempting to start ngrok with hostname: $HOSTNAME"
+        if exec_ngrok "${base_args[@]}" "--url=$HOSTNAME"; then
+            exit 0
+        else
+            echo "Ngrok failed to connect using HOSTNAME $HOSTNAME" >&2
+            echo "Falling back to random hostname..." >&2
+            sleep 2
+        fi
     fi
     
-    # Try v3+ syntax if it fails and HOSTNAME is set
-    if [[ -n "$HOSTNAME" && $exit_code -ne 0 ]]; then
-        clear
-        exec_ngrok "${base_args[@]}" "--url=$HOSTNAME"
-        exit_code=$?
-    fi
-    
-    # Clean up console and log error if both hostname attempts failed
-    if [[ -n "$HOSTNAME" && $exit_code -ne 0 ]]; then
-        clear
-        echo "Ngrok unable to connect using HOSTNAME $HOSTNAME. These commands failed:" >&2
-        echo -e "\t ngrok ${base_args[*]} --hostname=$HOSTNAME" >&2
-        echo -e "\t ngrok ${base_args[*]} --url=$HOSTNAME" >&2
-    fi
-    
-    # Start ngrok without hostname if hostname was invalid or undefined
-    if [[ $exit_code -ne 0 ]]; then
-        exec_ngrok "${base_args[@]}"
-        exit_code=$?
-    fi
-    
-    exit $exit_code
+    # Start ngrok without custom hostname
+    echo "Starting ngrok on port $PORT with random hostname..."
+    exec_ngrok "${base_args[@]}"
+    exit $?
 }
 
 # Run main function
