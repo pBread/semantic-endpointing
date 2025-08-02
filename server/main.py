@@ -1,15 +1,22 @@
+from transformers import (
+    AutoTokenizer,
+    AutoModelForSequenceClassification,
+    WhisperProcessor,
+    WhisperForConditionalGeneration,
+)
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from typing import Dict, Any
 import json
+import librosa
 import logging
 import numpy as np
 import os
 import torch
 import uvicorn
+
 
 load_dotenv()
 
@@ -73,6 +80,77 @@ class SemanticEvaluator:
         return prob_finished
 
 
+whisper_transcriber = None
+
+
+class WhisperTranscriber:
+    def __init__(self):
+        logger.info("Whisper model is loading")
+        self.cache_dir = "./models"
+        self.processor = WhisperProcessor.from_pretrained(
+            "openai/whisper-large-v3", cache_dir=self.cache_dir
+        )
+        self.model = WhisperForConditionalGeneration.from_pretrained(
+            "openai/whisper-large-v3", cache_dir=self.cache_dir
+        )
+
+        # Set device
+        if torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+            logger.info("Using Apple Silicon MPS acceleration")
+        elif torch.cuda.is_available():
+            self.device = torch.device("cuda")
+            logger.info("Using CUDA acceleration")
+        else:
+            self.device = torch.device("cpu")
+            logger.info("Using CPU")
+
+        logger.info("Whisper model loaded successfully")
+
+    def transcribe_audio(self, audio_data, sample_rate=8000):
+        try:
+            # Ensure float32 and normalized to [-1, 1]
+            if audio_data.dtype != np.float32:
+                audio_data = audio_data.astype(np.float32)
+
+            if np.max(np.abs(audio_data)) > 1.0:
+                audio_data = audio_data / np.max(np.abs(audio_data))
+
+            # Resample to 16kHz if needed (Whisper's expected sample rate)
+            if sample_rate != 16000:
+                audio_data = librosa.resample(
+                    audio_data, orig_sr=sample_rate, target_sr=16000
+                )
+
+            # Process audio with the processor
+            input_features = self.processor(
+                audio_data, sampling_rate=16000, return_tensors="pt"
+            ).input_features
+
+            # Move to device
+            input_features = input_features.to(self.device)
+
+            # Generate transcription
+            with torch.no_grad():
+                predicted_ids = self.model.generate(
+                    input_features,
+                    max_length=448,  # Maximum sequence length
+                    num_beams=1,  # Greedy decoding for speed
+                    do_sample=False,
+                )
+
+            # Decode the prediction
+            transcription = self.processor.batch_decode(
+                predicted_ids, skip_special_tokens=True
+            )[0]
+
+            return transcription.strip()
+
+        except Exception as e:
+            logger.error(f"Transcription error: {e}")
+            return ""
+
+
 class MediaStreamHandler:
     def __init__(self):
         self.stream_sid = None
@@ -98,6 +176,7 @@ class MediaStreamHandler:
         """Process incoming audio data"""
         try:
             logger.info("handle_media")
+            whisper_transcriber.transcribe_audio()
 
         except Exception as e:
             logger.error(f"Error processing media: {e}")
@@ -154,6 +233,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     semantic_evaluator = SemanticEvaluator()
+    whisper_transcriber = WhisperTranscriber()
 
     # Get port from environment or default to 8080
     port = int(os.getenv("PORT", 8080))
