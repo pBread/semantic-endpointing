@@ -108,8 +108,6 @@ app = FastAPI(title="Semantic Endpointing API")
 async def handle_incoming_call(request: Request):
     """Generate TwiML to connect to Media Stream WebSocket"""
 
-    logger.info("incoming-call")
-
     # Get hostname from environment variable
     HOSTNAME = os.getenv("HOSTNAME")
 
