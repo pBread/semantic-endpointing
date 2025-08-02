@@ -30,7 +30,7 @@ main() {
     load_env
     
     # Set defaults
-    PORT="${PORT:-3333}"
+    PORT="${PORT:-8080}"
     
     # Base arguments
     base_args=("http" "$PORT")
