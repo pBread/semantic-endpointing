@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
@@ -18,6 +19,8 @@ logger = logging.getLogger(__name__)
 # Set seed for reproducible demo results
 # Note: TEN-framework/TEN_Turn_Detection must be fine tuned for production use
 torch.manual_seed(999)
+
+semantic_evaluator = None
 
 
 class SemanticEvaluator:
@@ -72,7 +75,6 @@ class SemanticEvaluator:
 
 class MediaStreamHandler:
     def __init__(self):
-        self.semantic_evaluator = SemanticEvaluator()
         self.stream_sid = None
 
     async def handle_message(self, websocket: WebSocket, message: Dict[str, Any]):
@@ -151,6 +153,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 if __name__ == "__main__":
+    semantic_evaluator = SemanticEvaluator()
+
     # Get port from environment or default to 8080
     port = int(os.getenv("PORT", 8080))
     host = os.getenv("HOST", "0.0.0.0")
