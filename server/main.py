@@ -154,6 +154,36 @@ class WhisperTranscriber:
             return ""
 
 
+audio_manager = None
+
+
+class AudioManager:
+    def __init__(self):
+        self.audio_chunks = []
+        self.transcriber = whisper_transcriber
+        self.semantic_evaluator = semantic_evaluator
+
+    def process_audio(self, payload: str):
+        try:
+            audio_bytes = base64.b64decode(payload)
+
+            # Convert mu-law to linear PCM
+            audio_segment = AudioSegment(
+                data=audio_bytes, sample_width=1, frame_rate=8000, channels=1
+            )
+
+            samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
+            samples = samples / 32768.0  # Normalize to [-1, 1] range
+
+            self.audio_chunks.extend(samples)
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error processing audio payload: {e}")
+            return None
+
+
 class MediaStreamHandler:
     def __init__(self):
         self.stream_sid = None
@@ -175,39 +205,6 @@ class MediaStreamHandler:
 
         elif event == "stop":
             logger.info("Media stream stopped")
-
-    async def handle_media(self, websocket: WebSocket, message: Dict[str, Any]):
-        """Process incoming audio data"""
-        try:
-            payload = message.get("media", {}).get("payload", "")
-
-            audio_bytes = base64.b64decode(payload)
-
-            # Convert mu-law to linear PCM
-            audio_segment = AudioSegment(
-                data=audio_bytes, sample_width=1, frame_rate=8000, channels=1
-            )
-
-            samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
-            samples = samples / 32768.0  # Normalize to [-1, 1] range
-
-            self.audio_chunks.extend(samples)
-
-            # If we have enough audio (2 seconds), transcribe
-            if len(self.audio_chunks) >= 16000:  # 2 seconds at 8kHz
-                audio_array = np.array(self.audio_chunks)
-
-                # Transcribe
-                transcript = whisper_transcriber.transcribe_audio(audio_array)
-
-                # Log it
-                logger.info(f"TRANSCRIPT: {transcript}")
-
-                # Clear chunks
-                self.audio_chunks = []
-
-        except Exception as e:
-            logger.error(f"Error processing media: {e}")
 
 
 app = FastAPI(title="Semantic Endpointing API")
@@ -262,6 +259,7 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     semantic_evaluator = SemanticEvaluator()
     whisper_transcriber = WhisperTranscriber()
+    audio_manager = AudioManager()
 
     # Get port from environment or default to 8080
     port = int(os.getenv("PORT", 8080))
