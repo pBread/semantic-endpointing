@@ -1,17 +1,10 @@
 # Semantic Endpointing (WIP)
 
-A demonstration of semantic endpointing for voice AI agents using machine learning to detect when users have completed their speaking turn.
+This repo explores end-of-turn detection for voice AI. Traditional systems usually decide a turn is over by waiting for a fixed amount of silence or by using simple voice activity thresholds. That works, but it either interrupts people when they pause to think or it waits too long after a clear, complete statement.
 
-## What is Semantic Endpointing?
+Semantic endpointing uses a model to analyze the meaning and context of the transcript and estimate whether the speaker is finished. The output is a likelihood that the user is done speaking. That likelihood is then used to drive a dynamic response timer: respond quickly when language looks complete, wait longer when language suggests continuation, and choose an intermediate delay when it is unclear.
 
-Traditional endpointing uses fixed silence detection, i.e. wait X milliseconds of silence, then assume the user is done. Semantic endpointing analyzes the meaning of what the user said to determine if they're finished speaking.
-
-Examples:
-
-- "Hi, how can I help you?" → Complete (clear question)
-- "The name of that is, umm..." → Incomplete (user is thinking)
-- "Thank you, that's exactly what I needed." → Complete (statement of satisfaction)
-- "Well, I was looking into..." → Incomplete (user continuing thought)
+This mirrors how people time their replies, using what was said and the brief pause that follows it, not just the length of the pause alone.
 
 ## Getting Started
 
