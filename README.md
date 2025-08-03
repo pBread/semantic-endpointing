@@ -40,4 +40,4 @@ uv run server/main.py
 
 This demo is simply designed to show a semantic endpointing flow, not a full endpointing implementation.
 
-- Silence is determined with a simple amplitude check.
+- Silence is determined with a simple amplitude check. There are much better ways of doing silence detection but they are beyond the scope of this project.
