@@ -163,8 +163,9 @@ class AudioManager:
         self.transcriber = whisper_transcriber
         self.semantic_evaluator = semantic_evaluator
 
-    def process_audio(self, payload: str):
+    async def process_audio(self, payload: str):
         try:
+            logger.info(f"audio: {payload}")
             audio_bytes = base64.b64decode(payload)
 
             # Convert mu-law to linear PCM
@@ -187,7 +188,6 @@ class AudioManager:
 class MediaStreamHandler:
     def __init__(self):
         self.stream_sid = None
-        self.audio_chunks = []
 
     async def handle_message(self, websocket: WebSocket, message: Dict[str, Any]):
         """Handle incoming Twilio Media Stream messages"""
@@ -201,7 +201,8 @@ class MediaStreamHandler:
             logger.info(f"Media stream started: {self.stream_sid}")
 
         elif event == "media":
-            await self.handle_media(websocket, message)
+            payload = message.get("media", {}).get("payload", "")
+            await audio_manager.process_audio(payload)
 
         elif event == "stop":
             logger.info("Media stream stopped")
