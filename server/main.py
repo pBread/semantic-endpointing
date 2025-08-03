@@ -177,8 +177,12 @@ class AudioManager:
                 data=audio_bytes, sample_width=1, frame_rate=8000, channels=1
             )
 
-            samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
-            samples = samples / 32768.0  # Normalize to [-1, 1] range
+            linear_audio = audio_segment._spawn(
+                audio_segment.raw_data,
+                overrides={"sample_width": 2, "frame_rate": 8000},
+            )
+            samples = np.array(linear_audio.get_array_of_samples(), dtype=np.float32)
+            samples = samples / 32768.0  # Now normalize 16-bit to [-1, 1]
 
             self.audio_chunks.extend(samples)
 
