@@ -4,7 +4,6 @@ from transformers import (
     WhisperProcessor,
     WhisperForConditionalGeneration,
 )
-from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
@@ -164,7 +163,7 @@ class AudioManager:
         self.semantic_evaluator = semantic_evaluator
 
         # Silence detection parameters
-        self.silence_threshold = 0.01  # Amplitude threshold for silence
+        self.silence_threshold = 0.005  # Amplitude threshold for silence
         self.silence_window_size = 800  # Number of samples to analyze (100ms at 8kHz)
         self.silence_ratio_threshold = 0.8  #  ratio needed to consider window silent
 
@@ -227,6 +226,10 @@ class AudioManager:
                 )
 
             confidence = max(0.0, min(1.0, confidence))  # Clamp to [0, 1]
+
+            logger.info(
+                f"DEBUG: max_amplitude={max_amplitude:.6f}, threshold={self.silence_threshold}"
+            )
 
             return {
                 "is_silent": is_silent,
