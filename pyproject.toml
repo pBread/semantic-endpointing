@@ -5,8 +5,8 @@ version = "0.1.0"
 requires-python = ">=3.9"
 dependencies = [
     "fastapi>=0.116.1",
+    "g711>=1.6.5",
     "librosa>=0.11.0",
-    "pydub>=0.25.1",
     "python-dotenv>=1.1.1",
     "torch>=2.7.1",
     "transformers>=4.53.3",

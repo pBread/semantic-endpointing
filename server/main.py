@@ -7,7 +7,7 @@ from transformers import (
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import Response
-from pydub import AudioSegment
+from g711 import decode_ulaw
 from typing import Dict, Any
 import base64
 import json
@@ -169,15 +169,8 @@ class AudioManager:
 
     async def process_audio(self, payload: str):
         try:
-            audio_bytes = base64.b64decode(payload)
-
-            # Convert mu-law to linear PCM then cast to 16 bit
-            audio_segment = AudioSegment(
-                data=audio_bytes, sample_width=1, frame_rate=8000, channels=1
-            ).set_sample_width(2)
-
-            samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
-            samples = samples / 32768.0  # Now normalize 16-bit to [-1, 1]
+            ulaw_bytes = base64.b64decode(payload)
+            samples = decode_ulaw(ulaw_bytes)
 
             self.audio_chunks.extend(samples)
 
