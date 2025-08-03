@@ -33,3 +33,11 @@ chmod +x scripts/ngrok.bash
 ```bash
 uv run server/main.py
 ```
+
+## What this demo does and does not do
+
+### Limitations
+
+This demo is simply designed to show a semantic endpointing flow, not a full endpointing implementation.
+
+- Silence is determined with a simple amplitude check.

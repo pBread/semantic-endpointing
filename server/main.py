@@ -172,16 +172,12 @@ class AudioManager:
         try:
             audio_bytes = base64.b64decode(payload)
 
-            # Convert mu-law to linear PCM
+            # Convert mu-law to linear PCM then cast to 16 bit
             audio_segment = AudioSegment(
                 data=audio_bytes, sample_width=1, frame_rate=8000, channels=1
-            )
+            ).set_sample_width(2)
 
-            linear_audio = audio_segment._spawn(
-                audio_segment.raw_data,
-                overrides={"sample_width": 2, "frame_rate": 8000},
-            )
-            samples = np.array(linear_audio.get_array_of_samples(), dtype=np.float32)
+            samples = np.array(audio_segment.get_array_of_samples(), dtype=np.float32)
             samples = samples / 32768.0  # Now normalize 16-bit to [-1, 1]
 
             self.audio_chunks.extend(samples)
