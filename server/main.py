@@ -163,6 +163,11 @@ class AudioManager:
         self.transcriber = whisper_transcriber
         self.semantic_evaluator = semantic_evaluator
 
+        # Silence detection parameters
+        self.silence_threshold = 0.01  # Amplitude threshold for silence
+        self.silence_window_size = 800  # Number of samples to analyze (100ms at 8kHz)
+        self.silence_ratio_threshold = 0.8  #  ratio needed to consider window silent
+
     async def process_audio(self, payload: str):
         try:
             audio_bytes = base64.b64decode(payload)
@@ -177,10 +182,66 @@ class AudioManager:
 
             self.audio_chunks.extend(samples)
 
+            silent_result = self.detect_silence()
+            logger.info(f"silent_result {silent_result}")
+
             return None
 
         except Exception as e:
             logger.error(f"Error processing audio payload: {e}")
+            return None
+
+    def detect_silence(self):
+        try:
+            # Take the last
+            window = np.array(self.audio_chunks[-self.silence_window_size :])
+
+            logger.info(f"len(self.audio_chunks) {len(self.audio_chunks)}")
+
+            # Calculate silence metrics
+            abs_samples = np.abs(window)
+            max_amplitude = np.max(abs_samples)
+            mean_amplitude = np.mean(abs_samples)
+            rms_amplitude = np.sqrt(np.mean(window**2))
+
+            # Count samples below silence threshold
+            silent_samples = np.sum(abs_samples < self.silence_threshold)
+            silent_ratio = silent_samples / len(window)
+
+            # Determine if silent based on multiple criteria
+            is_silent = (
+                silent_ratio > self.silence_ratio_threshold
+                or max_amplitude < self.silence_threshold
+                or rms_amplitude < self.silence_threshold * 0.5
+            )
+
+            # Calculate confidence based on how clearly silent/non-silent it is
+
+            if is_silent:
+                confidence = min(
+                    1.0, silent_ratio + (self.silence_threshold - max_amplitude)
+                )
+            else:
+                confidence = min(
+                    1.0, (1 - silent_ratio) + (max_amplitude - self.silence_threshold)
+                )
+
+            confidence = max(0.0, min(1.0, confidence))  # Clamp to [0, 1]
+
+            return {
+                "is_silent": is_silent,
+                "confidence": confidence,
+                "metrics": {
+                    "silent_ratio": silent_ratio,
+                    "max_amplitude": max_amplitude,
+                    "mean_amplitude": mean_amplitude,
+                    "rms_amplitude": rms_amplitude,
+                    "samples_analyzed": len(window),
+                },
+            }
+
+        except Exception as e:
+            logger.error(f"Error detecting silence: {e}")
             return None
 
 
@@ -200,6 +261,8 @@ class MediaStreamHandler:
             logger.info(f"Media stream started: {self.stream_sid}")
 
         elif event == "media":
+
+            logger.info(message)
             payload = message.get("media", {}).get("payload", "")
             await audio_manager.process_audio(payload)
 
