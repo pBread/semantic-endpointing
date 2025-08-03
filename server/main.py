@@ -165,7 +165,6 @@ class AudioManager:
 
     async def process_audio(self, payload: str):
         try:
-            logger.info(f"audio: {payload}")
             audio_bytes = base64.b64decode(payload)
 
             # Convert mu-law to linear PCM
