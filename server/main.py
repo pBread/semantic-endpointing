@@ -290,6 +290,16 @@ async def handle_incoming_call(request: Request):
     return Response(content=twiml, media_type="application/xml")
 
 
+@app.post("/call-status")
+async def handle_incoming_call(request: Request):
+    form = await request.form()
+    call_sid = form.get("CallSid")
+    call_status = form.get("CallStatus")
+
+    logger.info(f"CallSid: {call_sid}, CallStatus: {call_status}")
+    return {"message": "Call received"}
+
+
 @app.websocket("/media-stream")
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint for Twilio Media Stream"""
